@@ -9,7 +9,7 @@ router.post('/', async (req, res) => {
   try {
     const task = new Task({
       content: req.body.content,
-      // Use timestamp for initial order. Simple and unique.
+      // Use timestamp for initial order (fractional indexing)
       order: Date.now(), 
     });
     await task.save();
@@ -22,17 +22,16 @@ router.post('/', async (req, res) => {
 // READ (GET /api/tasks)
 router.get('/', async (req, res) => {
   try {
-    const tasks = await Task.find().sort({ order: 'asc' }); // This sort is critical
+    // This sort is the magic for fractional indexing
+    const tasks = await Task.find().sort({ order: 'asc' }); 
     res.send(tasks);
   } catch (error) {
     res.status(500).send(error);
   }
 });
 
-// --- ⭐ FIX IS HERE ⭐ ---
-
-// UPDATE ORDER (PATCH /api/tasks/reorder)
-// THIS MUST COME *BEFORE* THE '/:id' ROUTE
+// UPDATE (PATCH /api/tasks/:id)
+// This single route handles all updates: content changes OR order changes.
 router.patch('/:id', async (req, res) => {
   try {
     // Only update fields that are sent in the body
@@ -52,23 +51,6 @@ router.patch('/:id', async (req, res) => {
     if (!task) return res.status(404).send();
     res.send(task);
   } catch (error) {
-    res.status(400).send(error);
-  }
-});
-
-// UPDATE (PATCH /api/tasks/:id)
-// THIS DYNAMIC ROUTE MUST COME *AFTER* SPECIFIC ROUTES
-router.patch('/:id', async (req, res) => {
-  try {
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      { content: req.body.content }, // Only update content
-      { new: true }
-    );
-    if (!task) return res.status(404).send();
-    res.send(task);
-  } catch (error) {
-    console.log(error) // This is where the CastError was logged
     res.status(400).send(error);
   }
 });
